@@ -1,0 +1,3202 @@
+classdef version_4_5 < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        UIFigure                       matlab.ui.Figure
+        GridLayout                     matlab.ui.container.GridLayout
+        LeftPanel                      matlab.ui.container.Panel
+        CenterPanel                    matlab.ui.container.Panel
+        UIAxesHoles                    matlab.ui.control.UIAxes
+        UIAxesDiffraction              matlab.ui.control.UIAxes
+        TabGroup                       matlab.ui.container.TabGroup
+        CurveDraw                      matlab.ui.container.Tab
+        DrawHoles_single_curve         matlab.ui.control.Button
+        DrawHoles_single_curve_Initialization  matlab.ui.control.Button
+        Label_8                        matlab.ui.control.Label
+        Num_Distribution_curve         matlab.ui.control.NumericEditField
+        Distribution_single_curve      matlab.ui.control.Button
+        MultilLnes                     matlab.ui.container.Tab
+        DrawHoles_single_angle         matlab.ui.control.Button
+        DrawHoles_single_angle_Initialization  matlab.ui.control.Button
+        EditField_2Label               matlab.ui.control.Label
+        Num_Distribution_angle         matlab.ui.control.NumericEditField
+        Distribution_single_angle      matlab.ui.control.Button
+        Combinations                   matlab.ui.container.Tab
+        DrawHoles_Linear               matlab.ui.control.Button
+        DrawHoles_Curve                matlab.ui.control.Button
+        Initialization                 matlab.ui.control.Button
+        DrawFinished                   matlab.ui.control.Button
+        MulitHoles                     matlab.ui.container.Tab
+        DrawHoles_Multiangles          matlab.ui.control.Button
+        DrawHoles_Multicurves          matlab.ui.control.Button
+        DrawHoles_Initialization       matlab.ui.control.Button
+        Distribution_Holes             matlab.ui.control.Button
+        Label_Holes                    matlab.ui.control.Label
+        Label_Distribution             matlab.ui.control.Label
+        MultiLayers                    matlab.ui.container.Tab
+        DrawHoles_MultiLayer_angles    matlab.ui.control.Button
+        DrawHoles_MultiLayer_curves    matlab.ui.control.Button
+        DrawHoles_InitializationLayer  matlab.ui.control.Button
+        Label_6                        matlab.ui.control.Label
+        CircleNodes                    matlab.ui.control.NumericEditField
+        Label_7                        matlab.ui.control.Label
+        DistributionCircle_nums        matlab.ui.control.DropDown
+        PhotoInsert                    matlab.ui.container.Tab
+        Label_2                        matlab.ui.control.Label
+        RGB_threshold                  matlab.ui.control.Slider
+        DrawHoles_upload               matlab.ui.control.Button
+        DrawHoles_fliter               matlab.ui.control.Button
+        DrawHoles_fliter_inverse       matlab.ui.control.Button
+        UIAxes                         matlab.ui.control.UIAxes
+        ClearPanel                     matlab.ui.control.Button
+        Action_single                  matlab.ui.control.Button
+        Action_white                   matlab.ui.control.Button
+        Lighten                        matlab.ui.control.Slider
+        Lambda                         matlab.ui.control.Slider
+        distance                       matlab.ui.control.Slider
+        Label_5                        matlab.ui.control.Label
+        EditLighten                    matlab.ui.control.NumericEditField
+        Lighten_log                    matlab.ui.control.StateButton
+        label_dist                     matlab.ui.control.Label
+        label_lambda                   matlab.ui.control.Label
+        graph_contract                 matlab.ui.control.Slider
+        contract_text                  matlab.ui.control.Label
+        RightPanel                     matlab.ui.container.Panel
+    end
+
+    % Properties that correspond to apps with auto-reflow
+    properties (Access = private)
+        onePanelWidth = 576;
+        twoPanelWidth = 768;
+    end
+
+    
+    properties (Access = public)
+        keydown
+        cx%存储选出的点坐标
+        cy%存储选出的点坐标
+        Z %生成孔系数，以这样的比例在绘图时将孔缩小Z倍，与结合M可以实现较大的缩小比例，可以改
+        M
+        lighten%亮度增益
+        lambda%波长
+        flag%模式选取
+        temp_n
+        temp_cx
+        temp_cy
+        multi_fig
+        id=999%也是模式选取的，主要用于判断是否初始化
+        thrd
+        fname
+        dist
+        opts = struct('WindowStyle','modal',...
+            'Interpreter','tex');
+        edit_lighten
+        lighten_index
+        dtr_num
+        temp_flag
+        lightenlog
+        dtr_mode
+        fft_data
+        contract
+    end
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Window button down function: UIFigure
+        function UIFigureWindowButtonDown(app, event)
+            if app.keydown==true
+                tmp=get(app.UIAxes,'currentpoint');     %get xy
+                app.cx=[app.cx,tmp(1,1)];
+                app.cy=[app.cy,tmp(1,2)];
+                if isempty(app.temp_n)
+                    app.temp_n=0;
+                end
+                app.temp_n=app.temp_n+1;
+                plot(app.UIAxes,app.cx,app.cy,'Color',[1 0 0],...
+                    "Marker","o","LineStyle","none"); %draw
+                grid(app.UIAxes,'on');
+                axis(app.UIAxes,[-1 1 -1 1]);
+                switch app.flag
+                    case 1
+                        app.DrawHoles_single_curve.Text='再次点击以显示孔型';
+                    case 2
+                        app.DrawHoles_single_angle.Text='再次点击以显示孔型';
+                    case 3
+                        app.DrawHoles_Linear.Text='再次点击结束直线绘制';
+                    case 4
+                        app.DrawHoles_Curve.Text='再次点击结束曲线绘制';
+                    case 5
+                        app.DrawHoles_Multiangles.Text='再次点击以显示孔型';
+                    case 6
+                        app.DrawHoles_Multicurves.Text='再次点击以显示孔型';
+                    case 7
+                        app.DrawHoles_MultiLayer_angles.Text='再次点击以显示孔型';
+                    case 8
+                        app.DrawHoles_MultiLayer_curves.Text='再次点击以显示孔型';
+                    case 9
+                        app.Distribution_Holes.Text='再次点击以完成绘制';
+                end
+            end
+        end
+
+        % Value changed function: Lighten_log
+        function Lighten_logValueChanged(app, event)
+            app.lightenlog = app.Lighten_log.Value;
+            if app.lightenlog==false
+                app.Lighten_log.Text='线性增益模式';
+            else
+                app.Lighten_log.Text='对数增益模式';
+            end
+        end
+
+        % Button pushed function: ClearPanel
+        function ClearPanelButtonPushed(app, event)
+            image(app.UIAxesDiffraction,zeros);
+            colormap(app.UIAxesDiffraction,'gray');
+            cla(app.UIAxesHoles);
+        end
+
+        % Button pushed function: Action_single
+        function Action_singlePushed(app, event)
+            fileID = fopen("temp.png");
+            if isempty(app.lighten)
+                errordlg('\fontsize{16}请滑动亮度滑条选择亮度！','错误提示框',app.opts);
+                return
+            end
+            if isempty(app.dist)
+                app.dist=4;
+            end
+            if fileID==-1
+                errordlg('\fontsize{16}无法读取图形数据，请检查当前matlab目录中是否生成temp.png文件，没有请重试','错误提示框',app.opts);
+                return
+            end
+            red=760;orange=622;yellow=590;green=577;
+            grass=492;blue=455;purple=380;%七种色光的分界处
+            f_x=1000;
+            f_y=200;
+            f = uifigure('Position',[f_x f_y 400 200]);
+            d = uiprogressdlg(f,'Title','请稍等',...
+                'Message','小蜗牛正在卖力绘图中。。。');
+            pause(.5);
+            png=imread("temp.png");
+            p1=png(:,:,1);
+            [i,j]=size(p1);
+            fd=find(p1==38);
+            p1(fd)=255;
+            if isempty(app.id)
+                errordlg('\fontsize{16}抱歉，请先完成图形绘制！','错误提示框',app.opts);
+                return
+            end
+            if isempty(app.lambda)
+                app.lambda=589.3;
+                app.Lambda.Value=589.3;
+            end
+            app.M=floor(app.dist*app.lambda);
+            if app.id==21||app.id==22
+                pp=p1~=0;
+            else
+                threshold=mean(p1(:));
+                pp=p1<threshold;
+                pp = imfill(pp,'holes');
+            end
+            if app.id==22
+                fill_pp=ones(app.M,app.M);
+            else
+                fill_pp=zeros(app.M,app.M);
+            end
+            d.Value = .25;
+            fill_pp(1:i,1:j)=pp;
+            Min=min([i,j]);
+            colormap(app.UIAxesHoles,'gray');
+            if app.flag==1||app.flag==2
+                
+            else
+                imagesc(app.UIAxesHoles,fill_pp(1:Min,1:Min));
+                set(app.UIAxesHoles,'color','k');
+                axis(app.UIAxesHoles,'equal');
+            end
+            F_pp=fft2(fill_pp,app.M,app.M);
+            d.Value = .5;
+            Fshift_pp=abs(fftshift(F_pp));
+            I=Fshift_pp.^2;
+            if app.id==21||app.id==22
+                I=I*1e-6;
+            else
+                I=I./max(max(I));
+            end
+            if app.lambda<=blue
+                sZ(:,:,1)=2/3*I/(purple-blue)*(app.lambda-blue);
+                sZ(:,:,3)=I;
+                sZ(:,:,2)=zeros;
+            end
+            if app.lambda<=grass && app.lambda>blue
+                sZ(:,:,2)=I/(grass-blue)*(app.lambda-blue);
+                sZ(:,:,3)=I;
+                sZ(:,:,1)=zeros;
+            end
+            if app.lambda<=green && app.lambda>grass
+                sZ(:,:,2)=I;
+                sZ(:,:,3)=I/(grass-green)*(app.lambda-green);
+                sZ(:,:,1)=zeros;
+            end
+            if app.lambda<=yellow && app.lambda>green
+                sZ(:,:,1)=I/(yellow-green)*(app.lambda-green);
+                sZ(:,:,2)=I;
+                sZ(:,:,3)=zeros;
+            end
+            if app.lambda<=orange && app.lambda>yellow
+                sZ(:,:,1)=I;
+                sZ(:,:,2)=1/2*I/(yellow-orange)*(app.lambda-orange)+I/2;
+                sZ(:,:,3)=zeros;
+            end
+            if app.lambda<=red && app.lambda>orange
+                sZ(:,:,1)=I;
+                sZ(:,:,2)=1/2*I/(orange-red)*(app.lambda-red);
+                sZ(:,:,3)=zeros;
+            end
+            if app.lightenlog==true
+                sZ=log(1+sZ);
+            end
+            d.Value=.75;
+            imagesc(app.UIAxesDiffraction,sZ(floor(app.M/2)-749:floor(app.M/2)+750,...
+                floor(app.M/2)-749:floor(app.M/2)+750,:)*10*app.lighten);
+            %             colormap(app.UIAxesDiffraction,'gray');
+            %             title('衍射图');
+            axis(app.UIAxesDiffraction,'equal');
+            t=0:0:0;
+            set(gca,'xtick',t);
+            set(gca,'ytick',t);
+            d.Value = 1;
+            d.Message = '完成';
+            app.fft_data=Fshift_pp;
+            pause(1);
+            close(d);
+            delete(f);
+        end
+
+        % Button pushed function: Action_white
+        function Action_whitePushed(app, event)
+            sZ=[];
+            if isempty(app.lighten)
+                errordlg('\fontsize{16}请滑动亮度滑条选择亮度！','错误提示框',app.opts);
+                return
+            end
+            fileID = fopen("temp.png");
+            if fileID==-1
+                errordlg('\fontsize{16}无法读取图形数据，请检查当前目录中是否生成temp.png文件，没有请重试','错误提示框',app.opts);
+                return
+            end
+            if isempty(app.dist)
+                app.dist=4;
+            end
+            f_x=1000;
+            f_y=200;
+            f = uifigure('Position',[f_x f_y 400 200]);
+            d = uiprogressdlg(f,'Title','请稍等',...
+                'Message','小蜗牛正在努力绘图中。。。');
+            pause(.5);
+            png=imread("temp.png");
+            p1=png(:,:,1);
+            [I,J]=size(p1);
+            fd=find(p1==38);
+            p1(fd)=255;
+            if isempty(app.id)
+                errordlg('\fontsize{16}抱歉，请先完成图形绘制！','错误提示框',app.opts);
+                return
+            end
+            threshold=mean(p1(:));
+            pp=p1<threshold;
+            if app.id==21||app.id==22
+            else
+                pp = imfill(pp,'holes');
+            end
+            if app.id==22
+                fill_pp=ones(app.M,app.M);
+            else
+                fill_pp=zeros(app.M,app.M);
+            end
+            app.M=floor(app.dist)*1002;%孔放缩系数，把随机生成的孔以这样的比例缩小，以提高衍射分辨率，不要超过5000不然很卡。可以改
+            fill_pp(1:I,1:J)=pp;
+            Min=min([I,J]);
+            if app.flag==1||app.flag==2
+            else
+                imagesc(app.UIAxesHoles,fill_pp(1:Min,1:Min));
+                set(app.UIAxesHoles,'color','k');
+                axis(app.UIAxesHoles,'equal');
+            end
+            d.Value = .2;
+            %             title('填充后的图形')
+            sZ=zeros(app.M,app.M,3);
+            %红光束
+            app.lambda=660*floor(app.dist);
+            vec=[app.M/2-app.lambda/2+1:1:app.M/2+app.lambda/2];
+            F_pp=fft2(fill_pp,app.lambda,app.lambda);
+            Fshift_pp=abs(fftshift(F_pp));
+            sZ(vec,vec,1)=sZ(vec,vec,1)+Fshift_pp.^2;
+            d.Value = .4;
+            clear F_pp
+            
+            %橙光束
+            app.lambda=610*floor(app.dist);
+            vec=[app.M/2-app.lambda/2+1:1:app.M/2+app.lambda/2];
+            F_pp=fft2(fill_pp,app.lambda,app.lambda);
+            Fshift_pp=abs(fftshift(F_pp));
+            sZ(vec,vec,1)=sZ(vec,vec,1)+Fshift_pp.^2;
+            sZ(vec,vec,2)=sZ(vec,vec,2)+(Fshift_pp.^2)/2;
+            
+            clear F_pp
+            
+            % 黄光束
+            app.lambda=570*floor(app.dist);
+            vec=[app.M/2-app.lambda/2+1:1:app.M/2+app.lambda/2];
+            F_pp=fft2(fill_pp,app.lambda,app.lambda);
+            Fshift_pp=abs(fftshift(F_pp));
+            sZ(vec,vec,1)=sZ(vec,vec,1)+(Fshift_pp.^2);
+            sZ(vec,vec,2)=sZ(vec,vec,2)+(Fshift_pp.^2);
+            
+            clear F_pp
+            
+            %绿光束
+            app.lambda=550*floor(app.dist);
+            vec=[app.M/2-app.lambda/2+1:1:app.M/2+app.lambda/2];
+            F_pp=fft2(fill_pp,app.lambda,app.lambda);
+            Fshift_pp=abs(fftshift(F_pp));
+            sZ(vec,vec,2)=sZ(vec,vec,2)+Fshift_pp.^2;
+            d.Value = .6;
+            clear F_pp
+            
+            %青光束
+            app.lambda=460*floor(app.dist);
+            vec=[app.M/2-app.lambda/2+1:1:app.M/2+app.lambda/2];
+            F_pp=fft2(fill_pp,app.lambda,app.lambda);
+            Fshift_pp=abs(fftshift(F_pp));
+            sZ(vec,vec,2)=sZ(vec,vec,2)+(Fshift_pp.^2);
+            sZ(vec,vec,3)=sZ(vec,vec,3)+(Fshift_pp.^2);
+            
+            clear F_pp
+            %蓝光束
+            app.lambda=440*floor(app.dist);
+            vec=[app.M/2-app.lambda/2+1:1:app.M/2+app.lambda/2];
+            F_pp=fft2(fill_pp,app.lambda,app.lambda);
+            Fshift_pp=abs(fftshift(F_pp));
+            sZ(vec,vec,3)=sZ(vec,vec,3)+Fshift_pp.^2;
+            d.Value = .8;
+            clear F_pp
+            
+            %紫光束
+            app.lambda=410*floor(app.dist);
+            vec=[app.M/2-app.lambda/2+1:1:app.M/2+app.lambda/2];
+            F_pp=fft2(fill_pp,app.lambda,app.lambda);
+            Fshift_pp=abs(fftshift(F_pp));
+            sZ(vec,vec,1)=sZ(vec,vec,1)+2/3*(Fshift_pp.^2);
+            sZ(vec,vec,3)=sZ(vec,vec,3)+(Fshift_pp.^2);
+            if app.id==21||app.id==22
+                sZ=sZ*1e-7;
+            else
+                sZ=sZ./max(max(max(sZ)));
+            end
+            imagesc(app.UIAxesDiffraction,sZ(app.M/2-749:1:app.M/2+750,...
+                app.M/2-749:1:app.M/2+750,:)*10*app.lighten);
+            %             title('衍射图');
+            axis(app.UIAxesDiffraction,'equal');
+            t=0:0:0;
+            set(gca,'xtick',t);
+            set(gca,'ytick',t);
+            d.Value = 1;
+            d.Message = '完成';
+            pause(1);
+            close(d);
+            delete(f);
+            app.lambda=[];%全局变量用后必须清零
+        end
+
+        % Button pushed function: 
+        % DrawHoles_single_curve_Initialization
+        function DrawHoles_single_curve_InitializationButtonPushed(app, event)
+            app.cx=[];
+            app.cy=[];
+            app.keydown=false;
+            cla(app.UIAxes);
+            cla(app.UIAxesHoles);
+            app.dtr_mode=0;
+            if isempty(app.dtr_num)
+                app.dtr_num=4;
+            end
+            app.Num_Distribution_angle.Value=app.dtr_num;
+            app.temp_n=0;
+            app.DrawHoles_single_curve.Text='点击确定孔特征点';
+            app.graph_contract.Visible=false;
+            app.contract_text.Visible=false;
+        end
+
+        % Button pushed function: DrawHoles_single_curve
+        function DrawHoles_single_curvePushed(app, event)
+            N=80;%拟合分辨率，你们不用改这个值
+            dN=1/N;
+            app.Z=8;
+            if app.keydown==true   %keydown
+                [theta,rho]=cart2pol(app.cx-mean(app.cx),app.cy-mean(app.cy));
+                if isempty(theta)
+                    errordlg('\fontsize{16}重大过失！你怎么能连一个点也不选呢？','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                if size(theta,2)<3
+                    errordlg('\fontsize{16}点的数量少于三个，不能构成平面图形，请重新选点！','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                if isempty(app.dtr_num)
+                    errordlg('请先点击初始化！','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                if app.dtr_mode==0
+                    app.Distribution_single_curve.Text='单个图形孔';
+                    app.dtr_mode=app.dtr_mode+1;
+                end
+                pol=[theta;rho]';
+                C=sortrows(pol,1,'ascend');
+                C=C';
+                theta=C(1,:);
+                theta=[theta,theta(1)+2*pi];
+                rho=C(2,:);
+                rho=[rho,rho(1)];
+                n=size(theta,2);
+                inp=zeros;
+                inp(1)=theta(1);
+                j=1;
+                i=2;
+                while(i<=n)
+                    j=j+1;
+                    inp(j)=inp(j-1)+dN;
+                    if inp(j)<theta(i)
+                        continue
+                    else
+                        inp(j)=theta(i);
+                        i=i+1;
+                    end
+                end
+                xq=inp;
+                vq2 = interp1(theta,rho,xq,'pchip');
+                [cx_,cy_]=pol2cart(xq,vq2);
+                fig=figure('visible','off');
+                plot(cx_+mean(app.cx),cy_+mean(app.cy),'k-');
+                axis(gca,[-app.Z app.Z -app.Z app.Z]);
+                grid(gca,'off');
+                axis(gca,'equal');
+                t=0:0:0;
+                set(gca,'xtick',t);
+                set(gca,'ytick',t);
+                saveas(fig,'temp.png');
+                plot(app.UIAxes,cx_+mean(app.cx),cy_+mean(app.cy),'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,app.cx,app.cy,'ro');
+                axis(app.UIAxes,[-1 1 -1 1]);
+                grid(app.UIAxes,'on');
+                
+                fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                set(app.UIAxesHoles,'color','k')
+                axis(app.UIAxesHoles,'equal');
+                
+                app.keydown=false;
+                app.id=4;
+                app.DrawHoles_single_curve.Text='点击确定孔特征点';
+            else
+                app.flag=1;
+                app.keydown=true;
+                app.cx=[];
+                app.cy=[];
+                cla(app.UIAxes);
+            end
+        end
+
+        % Button pushed function: Distribution_single_curve
+        function Distribution_single_curveButtonPushed(app, event)
+            if isempty(app.dtr_mode)
+                errordlg('请先点击初始化！','错误提示框',app.opts);
+                return
+            end
+            if isempty(app.cx)
+                errordlg('小老弟，先去画孔！','错误提示框',app.opts);
+                return
+            end
+            if app.keydown==true
+                errordlg('小老弟，您的孔是不是还没有画完呀？','错误提示框',app.opts);
+                return
+            end
+            N=80;%拟合分辨率，你们不用改这个值
+            dN=1/N;
+            app.Z=8;
+            app.dtr_num = app.Num_Distribution_curve.Value;
+            switch app.dtr_mode
+                case 0
+                    if isempty(app.multi_fig)
+                        figure('visible','off');
+                        app.multi_fig=gca;
+                    end
+                    cla(app.multi_fig);
+                    cla(app.UIAxes);
+                    cla(app.UIAxesHoles);
+                    app.Distribution_single_curve.Text='单个图形孔';
+                    [theta,rho]=cart2pol(app.cx-mean(app.cx),app.cy-mean(app.cy));
+                    pol=[theta;rho]';
+                    C=sortrows(pol,1,'ascend');
+                    C=C';
+                    theta=C(1,:);
+                    theta=[theta,theta(1)+2*pi];
+                    rho=C(2,:);
+                    rho=[rho,rho(1)];
+                    n=size(theta,2);
+                    inp=zeros;
+                    inp(1)=theta(1);
+                    j=1;
+                    i=2;
+                    while(i<=n)
+                        j=j+1;
+                        inp(j)=inp(j-1)+dN;
+                        if inp(j)<theta(i)
+                            continue
+                        else
+                            inp(j)=theta(i);
+                            i=i+1;
+                        end
+                    end
+                    xq=inp;
+                    vq2 = interp1(theta,rho,xq,'pchip');
+                    [cx_,cy_]=pol2cart(xq,vq2);
+                    fig=figure('visible','off');
+                    plot(cx_+mean(app.cx),cy_+mean(app.cy),'k-');
+                    axis(gca,[-app.Z app.Z -app.Z app.Z]);
+                    grid(gca,'off');
+                    axis(gca,'equal');
+                    t=0:0:0;
+                    set(gca,'xtick',t);
+                    set(gca,'ytick',t);
+                    saveas(fig,'temp.png');
+                    plot(app.UIAxes,cx_+mean(app.cx),cy_+mean(app.cy),'k-');
+                    hold(app.UIAxes,'on');
+                    plot(app.UIAxes,app.cx,app.cy,'ro');
+                    axis(app.UIAxes,[-1 1 -1 1]);
+                    grid(app.UIAxes,'on');
+                    
+                    fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                    set(app.UIAxesHoles,'color','k')
+                    axis(app.UIAxesHoles,'equal');
+                case 1
+                    app.Distribution_single_curve.Text='沿圆周生成阵列';
+                    cla(app.UIAxes);
+                    cla(app.UIAxesHoles);
+                    f_x=1000;
+                    f_y=200;
+                    f = uifigure('Position',[f_x f_y 400 200]);
+                    d = uiprogressdlg(f,'Title','请稍等',...
+                        'Message','小蜗牛正在努力绘图中。。。');
+                    pause(.5);
+                    a=[0:2*pi/app.dtr_num:2*pi];
+                    inix=0.7*cos(a);
+                    iniy=0.7*sin(a);
+                    a=[-0.5:0.1:2*pi];
+                    cir_x=0.7*cos(a);
+                    cir_y=0.7*sin(a);
+                    if isempty(app.multi_fig)
+                        figure('visible','off');
+                        app.multi_fig=gca;
+                    end
+                    cla(app.multi_fig);
+                    for ni=1:app.dtr_num
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:)+mean(temp_x),cy_(:)+mean(temp_y),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        hold(app.UIAxesHoles,'on');
+                        d.Value = d.Value+1/(app.dtr_num+1);
+                    end
+                    d.Value = 1;
+                    d.Message = '完成';
+                    pause(1);
+                    close(d);
+                    delete(f);
+                case 2
+                    app.Distribution_single_curve.Text='沿矩阵生成阵列';
+                    cla(app.UIAxes);
+                    cla(app.UIAxesHoles);
+                    if app.dtr_num==1
+                        errordlg('警告，请使用单个图形模式！','错误提示框',app.opts);
+                        return
+                    end
+                    if isinteger(int8(app.dtr_num))
+                    else
+                        errordlg('请输入自然数！','错误提示框',app.opts);
+                        app.Num_Distribution_curve.Value=3;
+                        return
+                    end
+                    if app.dtr_num<1
+                        errordlg('请输入自然数！','错误提示框',app.opts);
+                        app.Num_Distribution_curve.Value=3;
+                        return
+                    end
+                    if app.dtr_num>5
+                        errordlg('警告！超出图形范围！','错误提示框',app.opts);
+                        app.Num_Distribution_curve.Value=3;
+                        return
+                    end
+                    if isempty(app.multi_fig)
+                        figure('visible','off');
+                        app.multi_fig=gca;
+                    end
+                    f_x=1000;
+                    f_y=200;
+                    f = uifigure('Position',[f_x f_y 400 200]);
+                    d = uiprogressdlg(f,'Title','请稍等',...
+                        'Message','小蜗牛正在努力绘图中。。。');
+                    pause(.5);
+                    cla(app.multi_fig);
+                    for ai=1:app.dtr_num
+                        for aj=1:app.dtr_num
+                            inix=-0.9+(ai-1)*1.8/(app.dtr_num-1);
+                            iniy=-0.9+(aj-1)*1.8/(app.dtr_num-1);
+                            temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix;
+                            temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy;
+                            [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                            pol=[theta;rho]';
+                            C=sortrows(pol,1,'ascend');
+                            C=C';
+                            theta=C(1,:);
+                            theta=[theta,theta(1)+2*pi];
+                            rho=C(2,:);
+                            rho=[rho,rho(1)];
+                            n=size(theta,2);
+                            inp=zeros;
+                            inp(1)=theta(1);
+                            j=1;
+                            i=2;
+                            while(i<=n)
+                                j=j+1;
+                                inp(j)=inp(j-1)+dN;
+                                if inp(j)<theta(i)
+                                    continue
+                                else
+                                    inp(j)=theta(i);
+                                    i=i+1;
+                                end
+                            end
+                            xq=inp;
+                            vq2 = interp1(theta,rho,xq,'pchip');
+                            [cx_,cy_]=pol2cart(xq,vq2);
+                            plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                            axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                            grid(app.multi_fig,'off');
+                            axis(app.multi_fig,'equal');
+                            t=0:0:0;
+                            set(app.multi_fig,'xtick',t);
+                            set(app.multi_fig,'ytick',t);
+                            hold(app.multi_fig,'on');
+                            saveas(app.multi_fig,'temp.png');
+                            plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                            hold(app.UIAxes,'on');
+                            plot(app.UIAxes,temp_x,temp_y,'ro');
+                            axis(app.UIAxes,[-1 1 -1 1]);
+                            grid(app.UIAxes,'on');
+                            hold(app.UIAxes,'on');
+                            fill(app.UIAxesHoles,cx_(:)+mean(temp_x),cy_(:)+mean(temp_y),'w');
+                            set(app.UIAxesHoles,'color','k')
+                            axis(app.UIAxesHoles,'equal');
+                            hold(app.UIAxesHoles,'on');
+                        end
+                        d.Value = d.Value+1/(app.dtr_num+1);
+                    end
+                    d.Value = 1;
+                    d.Message = '完成';
+                    pause(1);
+                    close(d);
+                    delete(f);
+            end
+            app.dtr_mode=mod(app.dtr_mode+1,3);
+        end
+
+        % Value changed function: Num_Distribution_curve
+        function Num_Distribution_curveValueChanged(app, event)
+            app.dtr_num = app.Num_Distribution_curve.Value;
+        end
+
+        % Button pushed function: 
+        % DrawHoles_single_angle_Initialization
+        function DrawHoles_single_angle_InitializationButtonPushed(app, event)
+            app.cx=[];
+            app.cy=[];
+            app.keydown=false;
+            cla(app.UIAxes);
+            cla(app.UIAxesHoles);
+            app.dtr_mode=0;
+            if isempty(app.dtr_num)
+                app.dtr_num=4;
+            end
+            app.Num_Distribution_angle.Value=app.dtr_num;
+            app.temp_n=0;
+            app.DrawHoles_single_angle.Text='点击确定孔特征点';
+            app.graph_contract.Visible=false;
+            app.contract_text.Visible=false;
+        end
+
+        % Button pushed function: DrawHoles_single_angle
+        function DrawHoles_single_angleButtonPushed(app, event)
+            app.Z=8;
+            if app.keydown==true   %keydown
+                if size(app.cx,2)<3
+                    errordlg('\fontsize{16}点的数量少于三个，不能构成平面图形，请重新选点！','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                if app.dtr_mode==0
+                    app.Distribution_single_angle.Text='单个图形孔';
+                    app.dtr_mode=app.dtr_mode+1;
+                end
+                fig=figure('visible','off');
+                for i=1:size(app.cx,2)-1
+                    plot(app.cx(i:i+1),app.cy(i:i+1),'k-');
+                    hold on
+                end
+                plot([app.cx(end),app.cx(1)],[app.cy(end),app.cy(1)],'k-');
+                axis([-app.Z app.Z -app.Z app.Z])
+                grid off
+                axis equal
+                t=0:0:0;
+                set(gca,'xtick',t);
+                set(gca,'ytick',t);
+                saveas(fig,'temp.png');
+                plot(app.UIAxes,app.cx,app.cy,'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,[app.cx(end),app.cx(1)],[app.cy(end),app.cy(1)],'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,app.cx,app.cy,'ro');
+                axis(app.UIAxes,[-1 1 -1 1]);
+                grid(app.UIAxes,'on');
+                app.keydown=false;
+                fill(app.UIAxesHoles,app.cx,app.cy,'w');
+                set(app.UIAxesHoles,'color','k')
+                axis(app.UIAxesHoles,'equal');
+                app.id=5;
+                app.DrawHoles_single_angle.Text='点击确定孔特征点';
+            else
+                app.flag=2;
+                app.keydown=true;
+                app.cx=[];
+                app.cy=[];
+                cla(app.UIAxes);
+            end
+        end
+
+        % Button pushed function: Distribution_single_angle
+        function Distribution_single_angleButtonPushed(app, event)
+            if isempty(app.dtr_mode)
+                errordlg('请先点击初始化！','错误提示框',app.opts);
+                return
+            end
+            if isempty(app.cy)
+                errordlg('小老弟，先去画孔！','错误提示框',app.opts);
+                return
+            end
+            if app.keydown==true
+                errordlg('小老弟，您的孔是不是还没有画完呀？','错误提示框',app.opts);
+                return
+            end
+            app.dtr_num = app.Num_Distribution_angle.Value;
+            app.Z=8;
+            switch app.dtr_mode
+                case 0
+                    app.Distribution_single_angle.Text='单个图形孔';
+                    cla(app.multi_fig);
+                    figure('visible','off');
+                    app.multi_fig=gca;
+                    for i=1:size(app.cx,2)-1
+                        plot(app.multi_fig,app.cx(i:i+1),app.cy(i:i+1),'k-');
+                        hold on
+                    end
+                    plot(app.multi_fig,[app.cx(end),app.cx(1)],[app.cy(end),app.cy(1)],'k-');
+                    axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                    grid(app.multi_fig,'off');
+                    axis(app.multi_fig,'equal');
+                    t=0:0:0;
+                    set(gca,'xtick',t);
+                    set(gca,'ytick',t);
+                    saveas(app.multi_fig,'temp.png');
+                    plot(app.UIAxes,app.cx,app.cy,'k-');
+                    hold(app.UIAxes,'on');
+                    plot(app.UIAxes,[app.cx(end),app.cx(1)],[app.cy(end),app.cy(1)],'k-');
+                    hold(app.UIAxes,'on');
+                    plot(app.UIAxes,app.cx,app.cy,'ro');
+                    axis(app.UIAxes,[-1 1 -1 1]);
+                    grid(app.UIAxes,'on');
+                    app.keydown=false;
+                    fill(app.UIAxesHoles,app.cx,app.cy,'w');
+                    set(app.UIAxesHoles,'color','k')
+                    axis(app.UIAxesHoles,'equal');
+                case 1
+                    app.Distribution_single_angle.Text='沿圆周生成阵列';
+                    cla(app.UIAxes);
+                    cla(app.UIAxesHoles);
+                    f_x=1000;
+                    f_y=200;
+                    f = uifigure('Position',[f_x f_y 400 200]);
+                    d = uiprogressdlg(f,'Title','请稍等',...
+                        'Message','小蜗牛正在努力绘图中。。。');
+                    pause(.5);
+                    a=[0:2*pi/app.dtr_num:2*pi];
+                    inix=0.7*cos(a);
+                    iniy=0.7*sin(a);
+                    a=[-0.5:0.1:2*pi];
+                    cir_x=0.7*cos(a);
+                    cir_y=0.7*sin(a);
+                    figure('visible','off');
+                    app.multi_fig=gca;
+                    cla(app.multi_fig);
+                    for ni=1:app.dtr_num
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(app.multi_fig,temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        hold(app.UIAxesHoles,'on');
+                        d.Value = d.Value+1/(app.dtr_num+1);
+                    end
+                    d.Value = 1;
+                    d.Message = '完成';
+                    pause(1);
+                    close(d);
+                    delete(f);
+                case 2
+                    app.Distribution_single_angle.Text='沿矩阵生成阵列';
+                    cla(app.UIAxes);
+                    cla(app.UIAxesHoles);
+                    if app.dtr_num==1
+                        errordlg('警告，请使用单个图形模式！','错误提示框',app.opts);
+                        return
+                    end
+                    if isinteger(int8(app.dtr_num))
+                    else
+                        errordlg('请输入自然数！','错误提示框',app.opts);
+                        app.Num_Distribution_curve.Value=3;
+                        return
+                    end
+                    if app.dtr_num<1
+                        errordlg('请输入自然数！','错误提示框',app.opts);
+                        app.Num_Distribution_curve.Value=3;
+                        return
+                    end
+                    if app.dtr_num>5
+                        errordlg('警告！超出图形范围！','错误提示框',app.opts);
+                        app.Num_Distribution_curve.Value=3;
+                        return
+                    end
+                    if isempty(app.multi_fig)
+                        figure('visible','off');
+                        app.multi_fig=gca;
+                    end
+                    f_x=1000;
+                    f_y=200;
+                    f = uifigure('Position',[f_x f_y 400 200]);
+                    d = uiprogressdlg(f,'Title','请稍等',...
+                        'Message','小蜗牛正在努力绘图中。。。');
+                    pause(.5);
+                    cla(app.multi_fig);
+                    for ai=1:app.dtr_num
+                        for aj=1:app.dtr_num
+                            inix=-0.9+(ai-1)*1.8/(app.dtr_num-1);
+                            iniy=-0.9+(aj-1)*1.8/(app.dtr_num-1);
+                            temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix;
+                            temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy;
+                            for i=1:size(temp_x,2)-1
+                                plot(app.multi_fig,temp_x(i:i+1),temp_y(i:i+1),'k-');
+                                hold on
+                            end
+                            plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                            axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                            grid(app.multi_fig,'off');
+                            axis(app.multi_fig,'equal');
+                            t=0:0:0;
+                            set(app.multi_fig,'xtick',t);
+                            set(app.multi_fig,'ytick',t);
+                            hold(app.multi_fig,'on');
+                            saveas(app.multi_fig,'temp.png');
+                            plot(app.UIAxes,temp_x,temp_y,'k-');
+                            hold(app.UIAxes,'on');
+                            plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                            hold(app.UIAxes,'on');
+                            plot(app.UIAxes,temp_x,temp_y,'ro');
+                            axis(app.UIAxes,[-1 1 -1 1]);
+                            grid(app.UIAxes,'on');
+                            hold(app.UIAxes,'on');
+                            fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                            set(app.UIAxesHoles,'color','k')
+                            axis(app.UIAxesHoles,'equal');
+                            hold(app.UIAxesHoles,'on');
+                        end
+                        d.Value = d.Value+1/(app.dtr_num+1);
+                    end
+                    d.Value = 1;
+                    d.Message = '完成';
+                    pause(1);
+                    close(d);
+                    delete(f);
+            end
+            app.dtr_mode=mod(app.dtr_mode+1,3);
+        end
+
+        % Value changed function: Num_Distribution_angle
+        function Num_Distribution_angleValueChanged(app, event)
+            app.dtr_num = app.Num_Distribution_angle.Value;
+        end
+
+        % Button pushed function: DrawHoles_Linear
+        function DrawHoles_LinearButtonPushed(app, event)
+            if app.id==-1
+                app.Z=8;
+                temp_m=size(app.cx,2);
+                if app.keydown==true&&app.flag==3   %keydown
+                    if isempty(app.cx)
+                        errordlg('\fontsize{16}重大过失！你怎么能连一个点也不选呢？','错误提示框',app.opts);
+                        app.keydown=false;
+                        return
+                    end
+                    if isempty(app.temp_cx)
+                        app.temp_cx=[-111,app.cx(1)];
+                        app.temp_cy=[-111,app.cy(1)];
+                    end
+                    app.temp_cx(1)=app.cx(end);
+                    app.temp_cy(1)=app.cy(end);
+                    
+                    if temp_m>app.temp_n
+                        temp_vec=temp_m-app.temp_n:temp_m;
+                    else
+                        temp_vec=temp_m-app.temp_n+1:temp_m;
+                    end
+                    plot(app.UIAxes,app.cx(temp_vec),app.cy(temp_vec),'k-');
+                    hold(app.UIAxes,'on');
+                    plot(app.UIAxes,app.cx(temp_vec),app.cy(temp_vec),'ro');
+                    axis(app.UIAxes,[-1 1 -1 1]);
+                    grid(app.UIAxes,'on');
+                    %%% 输出图形文件
+                    
+                    if isempty(app.multi_fig)
+                        figure('visible','off');
+                        app.multi_fig=gca;
+                    end
+                    plot(app.multi_fig,app.cx(temp_vec),app.cy(temp_vec),'k-');
+                    axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                    grid(app.multi_fig,'off');
+                    axis(app.multi_fig,'equal');
+                    t=0:0:0;
+                    set(app.multi_fig,'xtick',t);
+                    set(app.multi_fig,'ytick',t);
+                    hold(app.multi_fig,'on')
+                    
+                    app.keydown=false;
+                    app.temp_n=0;
+                    app.DrawHoles_Linear.Text='点击绘制直线';
+                elseif app.keydown==true&&app.flag~=3
+                    errordlg('\fontsize{16}错误！请点击曲线绘图的按钮！','错误提示框',app.opts);
+                    return
+                else
+                    if app.flag==4
+                        app.flag=3;
+                        app.keydown=true;
+                    else
+                        app.flag=3;
+                        app.keydown=true;
+                    end
+                end
+            else
+                errordlg('\fontsize{16}别着急，请先点击初始化按钮！','错误提示框',app.opts);
+                return
+            end
+        end
+
+        % Button pushed function: DrawHoles_Curve
+        function DrawHoles_CurveButtonPushed(app, event)
+            if app.id==-1
+                N=80;%拟合分辨率，你们不用改这个值
+                dN=1/N;
+                app.Z=8;
+                if size(app.cx,2)>app.temp_n
+                    tx=app.cx(end-app.temp_n:end);
+                    ty=app.cy(end-app.temp_n:end);
+                    sig=app.temp_n+1;
+                else
+                    tx=app.cx(end-app.temp_n+1:end);
+                    ty=app.cy(end-app.temp_n+1:end);
+                    sig=app.temp_n;
+                end
+                if app.keydown==true&&app.flag==4   %keydown
+                    [theta,rho]=cart2pol(tx,ty);
+                    if isempty(theta)
+                        errordlg('\fontsize{16}重大过失！你怎么能连一个点也不选呢？','错误提示框',app.opts);
+                        app.keydown=false;
+                        return
+                    end
+                    if app.temp_n<2
+                        errordlg('\fontsize{16}点的数量少于2个，不能构成平面图形，请重新选点！','错误提示框',app.opts);
+                        app.keydown=false;
+                        return
+                    end
+                    fd1=find(theta>0&theta<pi/2);
+                    fd2=find(theta>pi/2&theta<pi);
+                    fd3=find(theta>-pi&theta<-pi/2);
+                    fd4=find(theta>-pi/2&theta<0);
+                    if tx(1)>0&&ty(1)>0
+                        if isempty(fd2)==0&&ty(end)<0
+                            theta(fd3)=theta(fd3)+2*pi;
+                            theta(fd4)=theta(fd4)+2*pi;
+                        end
+                        if ty(end)>0&&isempty(fd3)==0
+                            theta(fd2)=theta(fd2)-2*pi;
+                        end
+                    end
+                    if tx(1)<0&&ty(1)>0
+                        if ty(end)<0&&isempty(fd1)
+                            theta(fd3)=theta(fd3)+2*pi;
+                            theta(fd4)=theta(fd4)+2*pi;
+                        end
+                        if ty(end)>0&&isempty(fd3)==0
+                            theta(fd2)=theta(fd2)-2*pi;
+                        end
+                    end
+                    if tx(1)<0&&ty(1)<0
+                        if ty(end)>0&&isempty(fd4)
+                            theta(fd3)=theta(fd3)+2*pi;
+                            theta(fd4)=theta(fd4)+2*pi;
+                        end
+                        if ty(end)<0&&isempty(fd2)==0
+                            theta(fd3)=theta(fd3)+2*pi;
+                        end
+                    end
+                    if tx(1)>0&&ty(1)<0
+                        if ty(end)<0&&isempty(fd2)==0
+                            theta(fd3)=theta(fd3)+2*pi;
+                        end
+                        if ty(end)>0&&isempty(fd3)==0
+                            theta(fd3)=theta(fd3)+2*pi;
+                            theta(fd4)=theta(fd4)+2*pi;
+                        end
+                    end
+                    if tx(1)*tx(end)>0&&ty(1)*ty(end)>0
+                        errordlg('\fontsize{16}出错！一次绘制中首尾端点不能在同一个象限！','错误提示框',app.opts);
+                        app.keydown=false;
+                        return
+                    end
+                    inp=zeros;
+                    inp(1)=theta(1);
+                    j=1;
+                    i=2;
+                    while(i<=sig)
+                        j=j+1;
+                        if theta(i)>theta(i-1)
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        else
+                            inp(j)=inp(j-1)-dN;
+                            if inp(j)>theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        
+                    end
+                    xq=inp;
+                    vq2 = interp1(theta,rho,xq,'pchip');
+                    [cx_,cy_]=pol2cart(xq,vq2);
+                    
+                    plot(app.UIAxes,cx_,cy_,'k-');
+                    if isempty(app.temp_cx)
+                        app.temp_cx=[-111,tx(1)];
+                        app.temp_cy=[-111,ty(1)];
+                    end
+                    app.temp_cx(1)=tx(end);
+                    app.temp_cy(1)=ty(end);
+                    
+                    hold(app.UIAxes,'on');
+                    plot(app.UIAxes,tx,ty,'ro');
+                    axis(app.UIAxes,[-1 1 -1 1]);
+                    grid(app.UIAxes,'on');
+                    %%%% 输出图形文件
+                    if isempty(app.multi_fig)
+                        figure('visible','off');
+                        app.multi_fig=gca;
+                    end
+                    plot(app.multi_fig,cx_,cy_,'k-');
+                    axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                    grid(app.multi_fig,'off');
+                    axis(app.multi_fig,'equal');
+                    t=0:0:0;
+                    set(app.multi_fig,'xtick',t);
+                    set(app.multi_fig,'ytick',t);
+                    hold(app.multi_fig,'on')
+                    
+                    app.keydown=false;
+                    app.temp_n=0;
+                    app.DrawHoles_Curve.Text='点击绘制曲线';
+                elseif app.keydown==true&&app.flag~=4
+                    errordlg('\fontsize{16}错误！请点击曲线绘图按钮！','错误提示框',app.opts);
+                    return
+                else
+                    if app.flag==3
+                        app.flag=4;
+                        app.keydown=true;
+                    else
+                        app.flag=4;
+                        app.keydown=true;
+                    end
+                end
+            else
+                errordlg('\fontsize{16}别着急，请先点击初始化按钮！','错误提示框',app.opts);
+                return
+            end
+        end
+
+        % Button pushed function: Initialization
+        function InitializationButtonPushed(app, event)
+            cla(app.UIAxes);
+            cla(app.UIAxesHoles);
+            app.cx=[];
+            app.cy=[];
+            app.temp_n=0;
+            app.flag=-1;
+            app.temp_cx=[];
+            app.temp_cy=[];
+            app.multi_fig=[];
+            app.keydown=false;
+            app.id=-1;
+            app.graph_contract.Visible=false;
+            app.contract_text.Visible=false;
+        end
+
+        % Button pushed function: DrawFinished
+        function DrawFinishedButtonPushed(app, event)
+            if isempty(app.temp_cx)
+                errordlg('\fontsize{16}别着急，请先结束绘制，再点击完成哦！','错误提示框',app.opts);
+                return
+            end
+            plot(app.UIAxes,app.temp_cx,app.temp_cy,'k-');
+            plot(app.multi_fig,app.temp_cx,app.temp_cy,'k-');
+            axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+            grid(app.multi_fig,'off');
+            axis(app.multi_fig,'equal');
+            t=0:0:0;
+            set(app.multi_fig,'xtick',t);
+            set(app.multi_fig,'ytick',t);
+            saveas(app.multi_fig,'temp.png');
+            app.temp_cx=[];
+            app.temp_cy=[];
+        end
+
+        % Button pushed function: DrawHoles_Multiangles
+        function DrawHoles_MultianglesButtonPushed(app, event)
+            if app.id~=1
+                errordlg('\fontsize{16}别着急，请先点击初始化按钮！','错误提示框',app.opts)
+                return
+            end
+            app.Z=8;
+            if app.keydown==true   %keydown
+                temp_x=app.cx(end-app.temp_n+1:end);
+                temp_y=app.cy(end-app.temp_n+1:end);
+                if size(app.cx,2)<3
+                    errordlg('\fontsize{16}点的数量少于三个，不能构成平面图形，请重新选点！','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                if isempty(app.multi_fig)
+                    figure('visible','off');
+                    app.multi_fig=gca;
+                end
+                for i=1:size(temp_x,2)-1
+                    plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                    hold on
+                end
+                plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                grid(app.multi_fig,'off');
+                axis(app.multi_fig,'equal');
+                t=0:0:0;
+                set(app.multi_fig,'xtick',t);
+                set(app.multi_fig,'ytick',t);
+                hold(app.multi_fig,'on');
+                saveas(app.multi_fig,'temp.png');
+                plot(app.UIAxes,temp_x,temp_y,'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,temp_x,temp_y,'ro');
+                axis(app.UIAxes,[-1 1 -1 1]);
+                grid(app.UIAxes,'on');
+                fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                set(app.UIAxesHoles,'color','k')
+                axis(app.UIAxesHoles,'equal');
+                app.DrawHoles_Multiangles.Text='点击绘制多边形孔';
+                app.temp_n=0;
+                app.keydown=false;
+            else
+                app.flag=5;
+                app.keydown=true;
+                app.cx=[];
+                app.cy=[];
+            end
+            
+        end
+
+        % Button pushed function: DrawHoles_Initialization
+        function DrawHoles_InitializationButtonPushed(app, event)
+            app.multi_fig=[];
+            cla(app.UIAxes);
+            cla(app.UIAxesHoles);
+            app.keydown=false;
+            app.id=1;
+            app.temp_n=0;
+            app.temp_cx=[];
+            app.temp_cy=[];
+            app.graph_contract.Visible=false;
+            app.contract_text.Visible=false;
+        end
+
+        % Button pushed function: DrawHoles_Multicurves
+        function DrawHoles_MulticurvesButtonPushed(app, event)
+            if app.id~=1
+                errordlg('\fontsize{16}别着急，请先点击初始化按钮！','错误提示框',app.opts)
+                return
+            end
+            N=80;%拟合分辨率，你们不用改这个值
+            dN=1/N;
+            app.Z=8;
+            
+            if app.keydown==true   %keydown
+                temp_x=app.cx(end-app.temp_n+1:end);
+                temp_y=app.cy(end-app.temp_n+1:end);
+                [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                if isempty(theta)
+                    errordlg('\fontsize{16}重大过失！你怎么能连一个点也不选呢？','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                if size(theta,2)<3
+                    errordlg('\fontsize{16}点的数量少于三个，不能构成平面图形，请重新选点！','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                pol=[theta;rho]';
+                C=sortrows(pol,1,'ascend');
+                C=C';
+                theta=C(1,:);
+                theta=[theta,theta(1)+2*pi];
+                rho=C(2,:);
+                rho=[rho,rho(1)];
+                n=size(theta,2);
+                inp=zeros;
+                inp(1)=theta(1);
+                j=1;
+                i=2;
+                while(i<=n)
+                    j=j+1;
+                    inp(j)=inp(j-1)+dN;
+                    if inp(j)<theta(i)
+                        continue
+                    else
+                        inp(j)=theta(i);
+                        i=i+1;
+                    end
+                end
+                xq=inp;
+                vq2 = interp1(theta,rho,xq,'pchip');
+                [cx_,cy_]=pol2cart(xq,vq2);
+                if isempty(app.multi_fig)
+                    figure('visible','off');
+                    app.multi_fig=gca;
+                end
+                plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                grid(app.multi_fig,'off');
+                axis(app.multi_fig,'equal');
+                t=0:0:0;
+                set(app.multi_fig,'xtick',t);
+                set(app.multi_fig,'ytick',t);
+                hold(app.multi_fig,'on');
+                saveas(app.multi_fig,'temp.png');
+                plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,temp_x,temp_y,'ro');
+                axis(app.UIAxes,[-1 1 -1 1]);
+                grid(app.UIAxes,'on');
+                fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                set(app.UIAxesHoles,'color','k')
+                axis(app.UIAxesHoles,'equal');
+                hold(app.UIAxesHoles,'on');
+                app.DrawHoles_Multicurves.Text='点击绘制闭合曲线孔';
+                app.temp_n=0;
+                app.keydown=false;
+            else
+                app.flag=6;
+                app.keydown=true;
+                app.cx=[];
+                app.cy=[];
+            end
+        end
+
+        % Button pushed function: Distribution_Holes
+        function Distribution_HolesButtonPushed(app, event)
+            N=80;%拟合分辨率，你们不用改这个值
+            dN=1/N;
+            if isempty(app.Z)
+                errordlg('小老弟，你是不是连孔都还没画呀？先去画了来','错误提示框',app.opts);
+                return
+            end
+            if isempty(app.multi_fig)
+                figure('visible','off');
+                app.multi_fig=gca;
+            end
+            axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+            grid(app.multi_fig,'off');
+            axis(app.multi_fig,'equal');
+            t=0:0:0;
+            set(app.multi_fig,'xtick',t);
+            set(app.multi_fig,'ytick',t);
+            hold(app.multi_fig,'on');
+            
+            if isempty(app.temp_cx)
+                app.temp_cx=app.cx;
+                app.temp_cy=app.cy;
+            end
+            if app.keydown==true   %keydown
+                n0=size(app.cx,2);
+                if app.temp_flag==5
+                    for ni=1:n0
+                        temp_x=app.temp_cx(1:end)-app.temp_cx(1)+app.cx(ni);
+                        temp_y=app.temp_cy(1:end)-app.temp_cy(1)+app.cy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        hold(app.UIAxesHoles,'on');
+                        app.Distribution_Holes.Text='点击确定孔轨迹结点';
+                        app.keydown=false;
+                    end
+                end
+                if app.temp_flag==6
+                    for ni=1:n0
+                        temp_x=app.temp_cx(1:end)-app.temp_cx(1)+app.cx(ni);
+                        temp_y=app.temp_cy(1:end)-app.temp_cy(1)+app.cy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        hold(app.UIAxesHoles,'on');
+                        app.keydown=false;
+                    end
+                end
+                app.Distribution_Holes.Text='点击确定轨迹点';
+                app.temp_cx=[];
+                app.temp_cy=[];
+            else
+                app.temp_flag=app.flag;
+                app.flag=9;
+                app.keydown=true;
+                app.cx=[];
+                app.cy=[];
+            end
+            app.temp_n=0;
+        end
+
+        % Button pushed function: DrawHoles_fliter
+        function DrawHoles_fliterButtonPushed(app, event)
+            if isempty(app.fname)
+                errordlg('\fontsize{16}错误！找不到相应的文件','错误提示框',app.opts)
+                return
+            end
+            fileID = fopen(app.fname);
+            if fileID==-1
+                errordlg('\fontsize{16}错误！找不到相应的文件','错误提示框',app.opts)
+                return
+            end
+            P=imread(app.fname);
+            pic=P(:,:,1);
+            if isempty(app.thrd)
+                errordlg('\fontsize{16}别着急，请先滑动选取黑白像素门限值','错误提示框',app.opts);
+                return
+            end
+            fd=find(pic<app.thrd);
+            pic(:,:)=zeros;
+            pic(fd)=255;
+            [m,n]=size(pic);
+            fig=figure('Visible',"off");
+            imshow(pic,'Border','tight','initialmagnification','fit');
+            grid(gca,'off');
+            axis(gca,[1 m 1 n],'normal');
+            t=0:0:0;
+            set(gca,'xtick',t);
+            set(gca,'ytick',t);
+            set(gca,'color','k');
+            colormap(gca,'gray');
+            str=sprintf('-r%d',floor(100/app.contract));
+            print(fig,'temp','-dpng',str);
+            imagesc(app.UIAxesHoles,pic);
+            colormap(app.UIAxesHoles,'gray');
+            set(app.UIAxesHoles,'color','k');
+            app.DrawHoles_fliter.Text='显示滤波结果';
+            app.DrawHoles_fliter_inverse.Text='反相显示结果';
+            axis(app.UIAxesHoles,[1 m 1 n]);
+            axis(app.UIAxesHoles,'equal');
+            app.flag=1;
+            app.id=21;
+        end
+
+        % Button pushed function: DrawHoles_fliter_inverse
+        function DrawHoles_fliter_inverseButtonPushed(app, event)
+            if isempty(app.fname)
+                errordlg('\fontsize{16}错误！找不到相应的文件','错误提示框',app.opts);
+                return
+            end
+            fileID = fopen(app.fname);
+            if fileID==-1
+                errordlg('\fontsize{16}错误！找不到相应的文件','错误提示框',app.opts);
+                return
+            end
+            P=imread(app.fname);
+            pic=P(:,:,1);
+            if isempty(app.thrd)
+                errordlg('\fontsize{16}别着急，请先滑动选取黑白像素门限值','错误提示框',app.opts);
+                return
+            end
+            
+            fd=find(pic>app.thrd);
+            pic(:,:)=zeros;
+            pic(fd)=255;
+            [m,n]=size(pic);
+            fig=figure('Visible',"off");
+            imshow(pic,'Border','tight','initialmagnification','fit');
+            grid(gca,'off');
+            axis(gca,[1 m 1 n],'normal');
+            t=0:0:0;
+            set(gca,'xtick',t);
+            set(gca,'ytick',t);
+            set(gca,'color','k');
+            colormap(gca,'gray');
+            str=sprintf('-r%d',floor(100/app.contract));
+            print(fig,'temp','-dpng',str);
+            imagesc(app.UIAxesHoles,pic);
+            colormap(app.UIAxesHoles,'gray');
+            set(app.UIAxesHoles,'color','k');
+            app.DrawHoles_fliter.Text='显示滤波结果';
+            app.DrawHoles_fliter_inverse.Text='反相显示结果';
+            axis(app.UIAxesHoles,[1 m 1 n]);
+            axis(app.UIAxesHoles,'equal');
+            app.flag=1;
+            app.id=22;
+        end
+
+        % Button pushed function: DrawHoles_upload
+        function DrawHoles_uploadButtonPushed(app, event)
+            app.graph_contract.Visible=true;
+            app.contract_text.Visible=true;
+            if isempty(app.contract)
+                app.contract=5;
+                app.graph_contract.Value=5;
+            end
+            filterspec = {'*.jpg;*.tif;*.png;*.gif','All Image Files'};
+            [f,p] = uigetfile(filterspec);
+            %             % Make sure user didn't cancel uigetfile dialog
+            if (ischar(p))
+                app.fname = [p f];
+            else
+                errordlg('\fontsize{16}请重新选择图片上传！','错误提示框',app.opts);
+                return
+            end
+        end
+
+        % Value changed function: RGB_threshold
+        function RGB_thresholdValueChanged(app, event)
+            app.thrd = app.RGB_threshold.Value;
+        end
+
+        % Value changed function: Lambda
+        function LambdaValueChanged(app, event)
+            app.lambda = app.Lambda.Value;
+        end
+
+        % Value changed function: distance
+        function distanceValueChanged(app, event)
+            app.dist = app.distance.Value;
+        end
+
+        % Value changed function: EditLighten
+        function EditLightenValueChanged(app, event)
+            app.lighten = app.EditLighten.Value;
+            if app.lighten>100
+                app.lighten=100;
+                errordlg('\fontsize{16}亮度增益不得超过100！','错误提示框',app.opts);
+            end
+            app.Lighten.Value=app.lighten;
+        end
+
+        % Value changed function: Lighten
+        function LightenValueChanged(app, event)
+            app.lighten = app.Lighten.Value;
+            app.EditLighten.Value=app.lighten;
+        end
+
+        % Button pushed function: DrawHoles_MultiLayer_angles
+        function DrawHoles_MultiLayer_anglesButtonPushed(app, event)
+            if app.id~=1
+                errordlg('\fontsize{16}别着急，请先点击初始化按钮！','错误提示框',app.opts)
+                return
+            end
+            app.Z=8;
+            if app.keydown==true   %keydown
+                temp_x=app.cx(end-app.temp_n+1:end);
+                temp_y=app.cy(end-app.temp_n+1:end);
+                if size(app.cx,2)<3
+                    errordlg('\fontsize{16}点的数量少于三个，不能构成平面图形，请重新选点！','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                plot(app.UIAxes,temp_x,temp_y,'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,temp_x,temp_y,'ro');
+                axis(app.UIAxes,[-1 1 -1 1]);
+                grid(app.UIAxes,'on');
+                fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                set(app.UIAxesHoles,'color','k')
+                axis(app.UIAxesHoles,'equal');
+                app.DrawHoles_MultiLayer_angles.Text='点击绘制多边形孔';
+                app.keydown=false;
+            else
+                app.flag=7;
+                app.keydown=true;
+                app.cx=[];
+                app.cy=[];
+            end
+            
+        end
+
+        % Button pushed function: DrawHoles_InitializationLayer
+        function DrawHoles_InitializationLayerButtonPushed(app, event)
+            app.multi_fig=[];
+            cla(app.UIAxes);
+            cla(app.UIAxesHoles);
+            app.keydown=false;
+            app.id=1;
+            app.temp_n=[];
+            app.temp_cx=[];
+            app.temp_cy=[];
+            app.DistributionCircle_nums.Value='复位';
+            app.graph_contract.Visible=false;
+            app.contract_text.Visible=false;
+        end
+
+        % Button pushed function: DrawHoles_MultiLayer_curves
+        function DrawHoles_MultiLayer_curvesButtonPushed(app, event)
+            if app.id~=1
+                errordlg('\fontsize{16}别着急，请先点击初始化按钮！','错误提示框',app.opts)
+                return
+            end
+            N=80;%拟合分辨率，你们不用改这个值
+            dN=1/N;
+            app.Z=8;
+            
+            if app.keydown==true   %keydown
+                temp_x=app.cx(end-app.temp_n+1:end);
+                temp_y=app.cy(end-app.temp_n+1:end);
+                [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                if isempty(theta)
+                    errordlg('\fontsize{16}重大过失！你怎么能连一个点也不选呢？','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                if size(theta,2)<3
+                    errordlg('\fontsize{16}点的数量少于三个，不能构成平面图形，请重新选点！','错误提示框',app.opts);
+                    app.keydown=false;
+                    return
+                end
+                pol=[theta;rho]';
+                C=sortrows(pol,1,'ascend');
+                C=C';
+                theta=C(1,:);
+                theta=[theta,theta(1)+2*pi];
+                rho=C(2,:);
+                rho=[rho,rho(1)];
+                n=size(theta,2);
+                inp=zeros;
+                inp(1)=theta(1);
+                j=1;
+                i=2;
+                while(i<=n)
+                    j=j+1;
+                    inp(j)=inp(j-1)+dN;
+                    if inp(j)<theta(i)
+                        continue
+                    else
+                        inp(j)=theta(i);
+                        i=i+1;
+                    end
+                end
+                xq=inp;
+                vq2 = interp1(theta,rho,xq,'pchip');
+                [cx_,cy_]=pol2cart(xq,vq2);
+                plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                hold(app.UIAxes,'on');
+                plot(app.UIAxes,temp_x,temp_y,'ro');
+                axis(app.UIAxes,[-1 1 -1 1]);
+                grid(app.UIAxes,'on');
+                fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                set(app.UIAxesHoles,'color','k')
+                axis(app.UIAxesHoles,'equal');
+                app.DrawHoles_MultiLayer_curves.Text='点击绘制闭合曲线孔';
+                %                 app.temp_n=0;
+                app.keydown=false;
+            else
+                app.flag=8;
+                app.keydown=true;
+                app.cx=[];
+                app.cy=[];
+            end
+        end
+
+        % Value changed function: DistributionCircle_nums
+        function DistributionCircle_numsValueChanged(app, event)
+            class_str = app.DistributionCircle_nums.Value;
+            cla(app.UIAxes);
+            if isempty(app.multi_fig)
+                figure('visible','off');
+                app.multi_fig=gca;
+            end
+            cla(app.multi_fig);
+            if isempty(app.Z)
+                errordlg('小老弟，你是不是还没有画孔呀？先去画了来','错误提示框',app.opts);
+                return
+            end
+            axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+            grid(app.multi_fig,'off');
+            axis(app.multi_fig,'equal');
+            t=0:0:0;
+            set(app.multi_fig,'xtick',t);
+            set(app.multi_fig,'ytick',t);
+            hold(app.multi_fig,'on');
+            if isempty(app.cx)
+                errordlg('请先选择点，谢谢！');
+                return
+            end
+            if isempty(app.dtr_num)
+                err=errordlg('您未设置分布数量，已默认设置为3','错误提示框',app.opts);
+                pause(1);
+                delete(err);
+                app.CircleNodes.Value=3;
+                app.dtr_num=3;
+            end
+            N=80;%拟合分辨率，你们不用改这个值
+            dN=1/N;
+            app.Z=6;
+            a=[-0.5:0.1:2*pi];
+            a1=[0:2*pi/app.dtr_num:2*pi];
+            a2=[0:2*pi/(app.dtr_num):2*pi];
+            a3=[0:2*pi/(app.dtr_num):2*pi];
+            a4=[0:2*pi/(app.dtr_num):2*pi];
+            n1=size(a1,2);
+            n2=size(a2,2);
+            n3=size(a3,2);
+            n4=size(a4,2);
+            f_x=1000;
+            f_y=200;
+            f = uifigure('Position',[f_x f_y 400 200]);
+            d = uiprogressdlg(f,'Title','请稍等',...
+                'Message','小蜗牛正在努力绘图中。。。');
+            pause(.5);
+            if class_str=='复位'
+                return
+            end
+            if class_str=='单层'
+                inix=0.7*cos(a1);
+                iniy=0.7*sin(a1);
+                cir_x=0.7*cos(a);
+                cir_y=0.7*sin(a);
+                if app.flag==7
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+1);
+                    end
+                end
+                
+            end
+            if class_str=='双层'
+                inix=0.4*cos(a1);
+                iniy=0.4*sin(a1);
+                cir_x=0.4*cos(a);
+                cir_y=0.4*sin(a);
+                if app.flag==7
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+1);
+                    end
+                end
+                inix=0.8*cos(a2);
+                iniy=0.8*sin(a2);
+                cir_x=0.8*cos(a);
+                cir_y=0.8*sin(a);
+                if app.flag==7
+                    for ni=1:n2
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n2
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+1);
+                    end
+                end
+            end
+            if class_str=='三层'
+                inix=0.3*cos(a1);
+                iniy=0.3*sin(a1);
+                cir_x=0.3*cos(a);
+                cir_y=0.3*sin(a);
+                if app.flag==7
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                                                d.Value = d.Value+1/(n1+n2+n3+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+1);
+                    end
+                end
+                inix=0.6*cos(a2);
+                iniy=0.6*sin(a2);
+                cir_x=0.6*cos(a);
+                cir_y=0.6*sin(a);
+                if app.flag==7
+                    for ni=1:n2
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n2
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+1);
+                    end
+                end
+                inix=0.9*cos(a3);
+                iniy=0.9*sin(a3);
+                cir_x=0.9*cos(a);
+                cir_y=0.9*sin(a);
+                if app.flag==7
+                    for ni=1:n3
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n3
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+1);
+                    end
+                end
+            end
+            if class_str=='四层'
+                inix=0.225*cos(a1);
+                iniy=0.225*sin(a1);
+                cir_x=0.225*cos(a);
+                cir_y=0.225*sin(a);
+                if app.flag==7
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n1
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+                inix=0.45*cos(a2);
+                iniy=0.45*sin(a2);
+                cir_x=0.45*cos(a);
+                cir_y=0.45*sin(a);
+                if app.flag==7
+                    for ni=1:n2
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n2
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+                inix=0.675*cos(a3);
+                iniy=0.675*sin(a3);
+                cir_x=0.675*cos(a);
+                cir_y=0.675*sin(a);
+                if app.flag==7
+                    for ni=1:n3
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n3
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+                inix=0.9*cos(a4);
+                iniy=0.9*sin(a4);
+                cir_x=0.9*cos(a);
+                cir_y=0.9*sin(a);
+                if app.flag==7
+                    for ni=1:n4
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        for i=1:size(temp_x,2)-1
+                            plot(temp_x(i:i+1),temp_y(i:i+1),'k-');
+                            hold on
+                        end
+                        plot(app.multi_fig,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z])
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,temp_x,temp_y,'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,[temp_x(end),temp_x(1)],[temp_y(end),temp_y(1)],'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,temp_x,temp_y,'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+                if app.flag==8
+                    for ni=1:n4
+                        temp_x=app.cx(end-app.temp_n+1:end)-app.cx(end-app.temp_n+1)+inix(ni);
+                        temp_y=app.cy(end-app.temp_n+1:end)-app.cy(end-app.temp_n+1)+iniy(ni);
+                        [theta,rho]=cart2pol(temp_x-mean(temp_x),temp_y-mean(temp_y));
+                        pol=[theta;rho]';
+                        C=sortrows(pol,1,'ascend');
+                        C=C';
+                        theta=C(1,:);
+                        theta=[theta,theta(1)+2*pi];
+                        rho=C(2,:);
+                        rho=[rho,rho(1)];
+                        n=size(theta,2);
+                        inp=zeros;
+                        inp(1)=theta(1);
+                        j=1;
+                        i=2;
+                        while(i<=n)
+                            j=j+1;
+                            inp(j)=inp(j-1)+dN;
+                            if inp(j)<theta(i)
+                                continue
+                            else
+                                inp(j)=theta(i);
+                                i=i+1;
+                            end
+                        end
+                        xq=inp;
+                        vq2 = interp1(theta,rho,xq,'pchip');
+                        [cx_,cy_]=pol2cart(xq,vq2);
+                        plot(app.multi_fig,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        axis(app.multi_fig,[-app.Z app.Z -app.Z app.Z]);
+                        grid(app.multi_fig,'off');
+                        axis(app.multi_fig,'equal');
+                        t=0:0:0;
+                        set(app.multi_fig,'xtick',t);
+                        set(app.multi_fig,'ytick',t);
+                        hold(app.multi_fig,'on');
+                        saveas(app.multi_fig,'temp.png');
+                        plot(app.UIAxes,cx_+mean(temp_x),cy_+mean(temp_y),'k-');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,temp_x,temp_y,'ro');
+                        axis(app.UIAxes,[-1 1 -1 1]);
+                        grid(app.UIAxes,'on');
+                        hold(app.UIAxes,'on');
+                        plot(app.UIAxes,cir_x,cir_y,'g-.');
+                        fill(app.UIAxesHoles,cx_(:),cy_(:),'w');
+                        set(app.UIAxesHoles,'color','k')
+                        axis(app.UIAxesHoles,'equal');
+                        d.Value = d.Value+1/(n1+n2+n3+n4+1);
+                    end
+                end
+            end
+            d.Value = 1;
+            d.Message = '完成';
+            pause(1);
+            close(d);
+            delete(f);
+        end
+
+        % Value changed function: CircleNodes
+        function CircleNodesValueChanged(app, event)
+            app.dtr_num = app.CircleNodes.Value;
+        end
+
+        % Value changed function: graph_contract
+        function graph_contractValueChanged(app, event)
+            app.contract = app.graph_contract.Value;
+            app.DrawHoles_fliter.Text='点此确认滤波';
+            app.DrawHoles_fliter_inverse.Text='点此确认反相';
+        end
+
+        % Changes arrangement of the app based on UIFigure width
+        function updateAppLayout(app, event)
+            currentFigureWidth = app.UIFigure.Position(3);
+            if(currentFigureWidth <= app.onePanelWidth)
+                % Change to a 3x1 grid
+                app.GridLayout.RowHeight = {484, 484, 484};
+                app.GridLayout.ColumnWidth = {'1x'};
+                app.CenterPanel.Layout.Row = 1;
+                app.CenterPanel.Layout.Column = 1;
+                app.LeftPanel.Layout.Row = 2;
+                app.LeftPanel.Layout.Column = 1;
+                app.RightPanel.Layout.Row = 3;
+                app.RightPanel.Layout.Column = 1;
+            elseif (currentFigureWidth > app.onePanelWidth && currentFigureWidth <= app.twoPanelWidth)
+                % Change to a 2x2 grid
+                app.GridLayout.RowHeight = {484, 484};
+                app.GridLayout.ColumnWidth = {'1x', '1x'};
+                app.CenterPanel.Layout.Row = 1;
+                app.CenterPanel.Layout.Column = [1,2];
+                app.LeftPanel.Layout.Row = 2;
+                app.LeftPanel.Layout.Column = 1;
+                app.RightPanel.Layout.Row = 2;
+                app.RightPanel.Layout.Column = 2;
+            else
+                % Change to a 1x3 grid
+                app.GridLayout.RowHeight = {'1x'};
+                app.GridLayout.ColumnWidth = {12, '1x', 29};
+                app.LeftPanel.Layout.Row = 1;
+                app.LeftPanel.Layout.Column = 1;
+                app.CenterPanel.Layout.Row = 1;
+                app.CenterPanel.Layout.Column = 2;
+                app.RightPanel.Layout.Row = 1;
+                app.RightPanel.Layout.Column = 3;
+            end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.AutoResizeChildren = 'off';
+            app.UIFigure.Position = [100 100 863 484];
+            app.UIFigure.Name = 'UI Figure';
+            app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
+            app.UIFigure.WindowButtonDownFcn = createCallbackFcn(app, @UIFigureWindowButtonDown, true);
+
+            % Create GridLayout
+            app.GridLayout = uigridlayout(app.UIFigure);
+            app.GridLayout.ColumnWidth = {12, '1x', 29};
+            app.GridLayout.RowHeight = {'1x'};
+            app.GridLayout.ColumnSpacing = 0;
+            app.GridLayout.RowSpacing = 0;
+            app.GridLayout.Padding = [0 0 0 0];
+            app.GridLayout.Scrollable = 'on';
+
+            % Create LeftPanel
+            app.LeftPanel = uipanel(app.GridLayout);
+            app.LeftPanel.Layout.Row = 1;
+            app.LeftPanel.Layout.Column = 1;
+
+            % Create CenterPanel
+            app.CenterPanel = uipanel(app.GridLayout);
+            app.CenterPanel.Layout.Row = 1;
+            app.CenterPanel.Layout.Column = 2;
+
+            % Create UIAxesHoles
+            app.UIAxesHoles = uiaxes(app.CenterPanel);
+            title(app.UIAxesHoles, {'孔形状显示'; ''})
+            xlabel(app.UIAxesHoles, '')
+            ylabel(app.UIAxesHoles, '')
+            app.UIAxesHoles.XTick = [];
+            app.UIAxesHoles.XTickLabel = '';
+            app.UIAxesHoles.YTick = [];
+            app.UIAxesHoles.YTickLabel = '';
+            app.UIAxesHoles.TitleFontWeight = 'bold';
+            app.UIAxesHoles.Position = [559 14 257 268];
+
+            % Create UIAxesDiffraction
+            app.UIAxesDiffraction = uiaxes(app.CenterPanel);
+            title(app.UIAxesDiffraction, {'衍射显示'; ''})
+            xlabel(app.UIAxesDiffraction, '')
+            ylabel(app.UIAxesDiffraction, '')
+            app.UIAxesDiffraction.XTick = [];
+            app.UIAxesDiffraction.XTickLabel = '';
+            app.UIAxesDiffraction.YTick = [];
+            app.UIAxesDiffraction.YTickLabel = '';
+            app.UIAxesDiffraction.TitleFontWeight = 'bold';
+            app.UIAxesDiffraction.Position = [290 14 262 268];
+
+            % Create TabGroup
+            app.TabGroup = uitabgroup(app.CenterPanel);
+            app.TabGroup.Position = [13 368 481 109];
+
+            % Create CurveDraw
+            app.CurveDraw = uitab(app.TabGroup);
+            app.CurveDraw.Title = '闭合曲线孔';
+
+            % Create DrawHoles_single_curve
+            app.DrawHoles_single_curve = uibutton(app.CurveDraw, 'push');
+            app.DrawHoles_single_curve.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_single_curvePushed, true);
+            app.DrawHoles_single_curve.Position = [19 49 172 26];
+            app.DrawHoles_single_curve.Text = {'点击确定孔特征点'; ''};
+
+            % Create DrawHoles_single_curve_Initialization
+            app.DrawHoles_single_curve_Initialization = uibutton(app.CurveDraw, 'push');
+            app.DrawHoles_single_curve_Initialization.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_single_curve_InitializationButtonPushed, true);
+            app.DrawHoles_single_curve_Initialization.Position = [206 49 172 26];
+            app.DrawHoles_single_curve_Initialization.Text = {'点击初始化'; ''};
+
+            % Create Label_8
+            app.Label_8 = uilabel(app.CurveDraw);
+            app.Label_8.HorizontalAlignment = 'right';
+            app.Label_8.Position = [211 15 53 22];
+            app.Label_8.Text = '分布数量';
+
+            % Create Num_Distribution_curve
+            app.Num_Distribution_curve = uieditfield(app.CurveDraw, 'numeric');
+            app.Num_Distribution_curve.ValueChangedFcn = createCallbackFcn(app, @Num_Distribution_curveValueChanged, true);
+            app.Num_Distribution_curve.Position = [279 15 100 22];
+            app.Num_Distribution_curve.Value = 4;
+
+            % Create Distribution_single_curve
+            app.Distribution_single_curve = uibutton(app.CurveDraw, 'push');
+            app.Distribution_single_curve.ButtonPushedFcn = createCallbackFcn(app, @Distribution_single_curveButtonPushed, true);
+            app.Distribution_single_curve.Position = [19 13 172 26];
+            app.Distribution_single_curve.Text = {'点击此处选择生成孔模式'; ''};
+
+            % Create MultilLnes
+            app.MultilLnes = uitab(app.TabGroup);
+            app.MultilLnes.Title = '多边形孔';
+
+            % Create DrawHoles_single_angle
+            app.DrawHoles_single_angle = uibutton(app.MultilLnes, 'push');
+            app.DrawHoles_single_angle.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_single_angleButtonPushed, true);
+            app.DrawHoles_single_angle.Position = [19 49 172 26];
+            app.DrawHoles_single_angle.Text = {'点击确定孔特征点'; ''};
+
+            % Create DrawHoles_single_angle_Initialization
+            app.DrawHoles_single_angle_Initialization = uibutton(app.MultilLnes, 'push');
+            app.DrawHoles_single_angle_Initialization.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_single_angle_InitializationButtonPushed, true);
+            app.DrawHoles_single_angle_Initialization.Position = [206 49 172 26];
+            app.DrawHoles_single_angle_Initialization.Text = {'点击初始化'; ''};
+
+            % Create EditField_2Label
+            app.EditField_2Label = uilabel(app.MultilLnes);
+            app.EditField_2Label.HorizontalAlignment = 'right';
+            app.EditField_2Label.Position = [211 15 53 22];
+            app.EditField_2Label.Text = '分布数量';
+
+            % Create Num_Distribution_angle
+            app.Num_Distribution_angle = uieditfield(app.MultilLnes, 'numeric');
+            app.Num_Distribution_angle.ValueChangedFcn = createCallbackFcn(app, @Num_Distribution_angleValueChanged, true);
+            app.Num_Distribution_angle.Position = [279 15 100 22];
+            app.Num_Distribution_angle.Value = 4;
+
+            % Create Distribution_single_angle
+            app.Distribution_single_angle = uibutton(app.MultilLnes, 'push');
+            app.Distribution_single_angle.ButtonPushedFcn = createCallbackFcn(app, @Distribution_single_angleButtonPushed, true);
+            app.Distribution_single_angle.Position = [19 13 172 26];
+            app.Distribution_single_angle.Text = {'点击此处选择生成孔模式'; ''};
+
+            % Create Combinations
+            app.Combinations = uitab(app.TabGroup);
+            app.Combinations.Title = '组合孔';
+
+            % Create DrawHoles_Linear
+            app.DrawHoles_Linear = uibutton(app.Combinations, 'push');
+            app.DrawHoles_Linear.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_LinearButtonPushed, true);
+            app.DrawHoles_Linear.Position = [14 50 145 26];
+            app.DrawHoles_Linear.Text = {'点击绘制直线'; ''};
+
+            % Create DrawHoles_Curve
+            app.DrawHoles_Curve = uibutton(app.Combinations, 'push');
+            app.DrawHoles_Curve.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_CurveButtonPushed, true);
+            app.DrawHoles_Curve.Position = [172 50 145 26];
+            app.DrawHoles_Curve.Text = '点击绘制曲线';
+
+            % Create Initialization
+            app.Initialization = uibutton(app.Combinations, 'push');
+            app.Initialization.ButtonPushedFcn = createCallbackFcn(app, @InitializationButtonPushed, true);
+            app.Initialization.Position = [171 17 147 26];
+            app.Initialization.Text = '数据初始化';
+
+            % Create DrawFinished
+            app.DrawFinished = uibutton(app.Combinations, 'push');
+            app.DrawFinished.ButtonPushedFcn = createCallbackFcn(app, @DrawFinishedButtonPushed, true);
+            app.DrawFinished.Position = [13.5 17 146 26];
+            app.DrawFinished.Text = {'点击完成绘制'; ''};
+
+            % Create MulitHoles
+            app.MulitHoles = uitab(app.TabGroup);
+            app.MulitHoles.Title = '多孔衍射';
+
+            % Create DrawHoles_Multiangles
+            app.DrawHoles_Multiangles = uibutton(app.MulitHoles, 'push');
+            app.DrawHoles_Multiangles.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_MultianglesButtonPushed, true);
+            app.DrawHoles_Multiangles.Position = [66 45 131 26];
+            app.DrawHoles_Multiangles.Text = {'点击绘制多边形孔'; ''};
+
+            % Create DrawHoles_Multicurves
+            app.DrawHoles_Multicurves = uibutton(app.MulitHoles, 'push');
+            app.DrawHoles_Multicurves.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_MulticurvesButtonPushed, true);
+            app.DrawHoles_Multicurves.Position = [66 11 131 26];
+            app.DrawHoles_Multicurves.Text = '点击绘制闭合曲线孔';
+
+            % Create DrawHoles_Initialization
+            app.DrawHoles_Initialization = uibutton(app.MulitHoles, 'push');
+            app.DrawHoles_Initialization.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_InitializationButtonPushed, true);
+            app.DrawHoles_Initialization.Position = [320 45 135 26];
+            app.DrawHoles_Initialization.Text = '数据初始化';
+
+            % Create Distribution_Holes
+            app.Distribution_Holes = uibutton(app.MulitHoles, 'push');
+            app.Distribution_Holes.ButtonPushedFcn = createCallbackFcn(app, @Distribution_HolesButtonPushed, true);
+            app.Distribution_Holes.Position = [320 12 135 26];
+            app.Distribution_Holes.Text = '点击复制孔';
+
+            % Create Label_Holes
+            app.Label_Holes = uilabel(app.MulitHoles);
+            app.Label_Holes.HorizontalAlignment = 'right';
+            app.Label_Holes.Position = [38 0 14 80];
+            app.Label_Holes.Text = {'绘'; '制'; '单'; '个'; '孔'};
+
+            % Create Label_Distribution
+            app.Label_Distribution = uilabel(app.MulitHoles);
+            app.Label_Distribution.HorizontalAlignment = 'right';
+            app.Label_Distribution.Position = [288 0 25 80];
+            app.Label_Distribution.Text = {'绘'; '制'; '孔'; '分'; '布'};
+
+            % Create MultiLayers
+            app.MultiLayers = uitab(app.TabGroup);
+            app.MultiLayers.Title = '多层衍射';
+
+            % Create DrawHoles_MultiLayer_angles
+            app.DrawHoles_MultiLayer_angles = uibutton(app.MultiLayers, 'push');
+            app.DrawHoles_MultiLayer_angles.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_MultiLayer_anglesButtonPushed, true);
+            app.DrawHoles_MultiLayer_angles.Position = [40 41 124 26];
+            app.DrawHoles_MultiLayer_angles.Text = {'点击绘制多边形孔'; ''};
+
+            % Create DrawHoles_MultiLayer_curves
+            app.DrawHoles_MultiLayer_curves = uibutton(app.MultiLayers, 'push');
+            app.DrawHoles_MultiLayer_curves.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_MultiLayer_curvesButtonPushed, true);
+            app.DrawHoles_MultiLayer_curves.Position = [176 41 131 26];
+            app.DrawHoles_MultiLayer_curves.Text = '点击绘制闭合曲线孔';
+
+            % Create DrawHoles_InitializationLayer
+            app.DrawHoles_InitializationLayer = uibutton(app.MultiLayers, 'push');
+            app.DrawHoles_InitializationLayer.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_InitializationLayerButtonPushed, true);
+            app.DrawHoles_InitializationLayer.Position = [317 41 135 26];
+            app.DrawHoles_InitializationLayer.Text = '数据初始化';
+
+            % Create Label_6
+            app.Label_6 = uilabel(app.MultiLayers);
+            app.Label_6.HorizontalAlignment = 'right';
+            app.Label_6.Position = [181 13 41 22];
+            app.Label_6.Text = '节点数';
+
+            % Create CircleNodes
+            app.CircleNodes = uieditfield(app.MultiLayers, 'numeric');
+            app.CircleNodes.ValueChangedFcn = createCallbackFcn(app, @CircleNodesValueChanged, true);
+            app.CircleNodes.Position = [234 13 68 22];
+
+            % Create Label_7
+            app.Label_7 = uilabel(app.MultiLayers);
+            app.Label_7.HorizontalAlignment = 'right';
+            app.Label_7.Position = [15 13 77 22];
+            app.Label_7.Text = '绘制圆形阵列';
+
+            % Create DistributionCircle_nums
+            app.DistributionCircle_nums = uidropdown(app.MultiLayers);
+            app.DistributionCircle_nums.Items = {'复位', '单层', '双层', '三层', '四层'};
+            app.DistributionCircle_nums.ValueChangedFcn = createCallbackFcn(app, @DistributionCircle_numsValueChanged, true);
+            app.DistributionCircle_nums.Position = [107 13 61 22];
+            app.DistributionCircle_nums.Value = '复位';
+
+            % Create PhotoInsert
+            app.PhotoInsert = uitab(app.TabGroup);
+            app.PhotoInsert.Title = '插入图片';
+
+            % Create Label_2
+            app.Label_2 = uilabel(app.PhotoInsert);
+            app.Label_2.HorizontalAlignment = 'center';
+            app.Label_2.Position = [19 23 55 40];
+            app.Label_2.Text = {'黑白像素'; '门限值'; ''};
+
+            % Create RGB_threshold
+            app.RGB_threshold = uislider(app.PhotoInsert);
+            app.RGB_threshold.Limits = [0 255];
+            app.RGB_threshold.MajorTicks = [0 51 102 153 204 255];
+            app.RGB_threshold.ValueChangedFcn = createCallbackFcn(app, @RGB_thresholdValueChanged, true);
+            app.RGB_threshold.Position = [83 52 150 3];
+
+            % Create DrawHoles_upload
+            app.DrawHoles_upload = uibutton(app.PhotoInsert, 'push');
+            app.DrawHoles_upload.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_uploadButtonPushed, true);
+            app.DrawHoles_upload.Position = [277 52 172 26];
+            app.DrawHoles_upload.Text = {'点击上传本地图像'; ''};
+
+            % Create DrawHoles_fliter
+            app.DrawHoles_fliter = uibutton(app.PhotoInsert, 'push');
+            app.DrawHoles_fliter.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_fliterButtonPushed, true);
+            app.DrawHoles_fliter.Position = [277 11 82 26];
+            app.DrawHoles_fliter.Text = '显示滤波结果';
+
+            % Create DrawHoles_fliter_inverse
+            app.DrawHoles_fliter_inverse = uibutton(app.PhotoInsert, 'push');
+            app.DrawHoles_fliter_inverse.ButtonPushedFcn = createCallbackFcn(app, @DrawHoles_fliter_inverseButtonPushed, true);
+            app.DrawHoles_fliter_inverse.Position = [366 11 83 26];
+            app.DrawHoles_fliter_inverse.Text = '反相显示结果';
+
+            % Create UIAxes
+            app.UIAxes = uiaxes(app.CenterPanel);
+            title(app.UIAxes, '点击选择特征点')
+            xlabel(app.UIAxes, 'X')
+            ylabel(app.UIAxes, 'Y')
+            app.UIAxes.XLim = [-1 1];
+            app.UIAxes.YLim = [-1 1];
+            app.UIAxes.XTick = [-1 0 1];
+            app.UIAxes.XTickLabel = {'-1'; '0'; '1'};
+            app.UIAxes.YTick = [-1 0 1];
+            app.UIAxes.YTickLabel = {'-1'; '0'; '1'};
+            app.UIAxes.TitleFontWeight = 'bold';
+            app.UIAxes.Position = [6 1 276 268];
+
+            % Create ClearPanel
+            app.ClearPanel = uibutton(app.CenterPanel, 'push');
+            app.ClearPanel.ButtonPushedFcn = createCallbackFcn(app, @ClearPanelButtonPushed, true);
+            app.ClearPanel.Position = [559 311 100 26];
+            app.ClearPanel.Text = '清空显示屏';
+
+            % Create Action_single
+            app.Action_single = uibutton(app.CenterPanel, 'push');
+            app.Action_single.ButtonPushedFcn = createCallbackFcn(app, @Action_singlePushed, true);
+            app.Action_single.Position = [344 311 100 26];
+            app.Action_single.Text = '开始单色光衍射';
+
+            % Create Action_white
+            app.Action_white = uibutton(app.CenterPanel, 'push');
+            app.Action_white.ButtonPushedFcn = createCallbackFcn(app, @Action_whitePushed, true);
+            app.Action_white.Position = [452 311 100 26];
+            app.Action_white.Text = '开始白光衍射';
+
+            % Create Lighten
+            app.Lighten = uislider(app.CenterPanel);
+            app.Lighten.MajorTicks = [0 50 100];
+            app.Lighten.ValueChangedFcn = createCallbackFcn(app, @LightenValueChanged, true);
+            app.Lighten.MinorTicks = [0 10 20 30 40 50 60 70 80 90 100];
+            app.Lighten.Position = [24 323 157 3];
+
+            % Create Lambda
+            app.Lambda = uislider(app.CenterPanel);
+            app.Lambda.Limits = [380 760];
+            app.Lambda.MajorTicks = [380 570 760];
+            app.Lambda.ValueChangedFcn = createCallbackFcn(app, @LambdaValueChanged, true);
+            app.Lambda.Position = [630 452 150 3];
+            app.Lambda.Value = 589.3;
+
+            % Create distance
+            app.distance = uislider(app.CenterPanel);
+            app.distance.Limits = [4 10];
+            app.distance.MajorTicks = [4 5 6 7 8 9 10];
+            app.distance.ValueChangedFcn = createCallbackFcn(app, @distanceValueChanged, true);
+            app.distance.Position = [630 400 150 3];
+            app.distance.Value = 4;
+
+            % Create Label_5
+            app.Label_5 = uilabel(app.CenterPanel);
+            app.Label_5.HorizontalAlignment = 'right';
+            app.Label_5.Position = [24 333 77 22];
+            app.Label_5.Text = '亮度增益输入';
+
+            % Create EditLighten
+            app.EditLighten = uieditfield(app.CenterPanel, 'numeric');
+            app.EditLighten.ValueChangedFcn = createCallbackFcn(app, @EditLightenValueChanged, true);
+            app.EditLighten.Position = [113 333 68 22];
+
+            % Create Lighten_log
+            app.Lighten_log = uibutton(app.CenterPanel, 'state');
+            app.Lighten_log.ValueChangedFcn = createCallbackFcn(app, @Lighten_logValueChanged, true);
+            app.Lighten_log.Text = '线性增益模式';
+            app.Lighten_log.Position = [234 311 100 26];
+
+            % Create label_dist
+            app.label_dist = uilabel(app.CenterPanel);
+            app.label_dist.Position = [540 371 77 32];
+            app.label_dist.Text = {'滑动选取衍射'; '孔与光屏距离'};
+
+            % Create label_lambda
+            app.label_lambda = uilabel(app.CenterPanel);
+            app.label_lambda.Position = [540 430 77 22];
+            app.label_lambda.Text = '滑动选取波长';
+
+            % Create graph_contract
+            app.graph_contract = uislider(app.CenterPanel);
+            app.graph_contract.Limits = [5 10];
+            app.graph_contract.MajorTicks = [5 10];
+            app.graph_contract.MajorTickLabels = {'5', '10'};
+            app.graph_contract.ValueChangedFcn = createCallbackFcn(app, @graph_contractValueChanged, true);
+            app.graph_contract.MinorTicks = [5 6 7 8 9 10];
+            app.graph_contract.HandleVisibility = 'off';
+            app.graph_contract.Position = [751 335 45 3];
+            app.graph_contract.Value = 5;
+
+            % Create contract_text
+            app.contract_text = uilabel(app.CenterPanel);
+            app.contract_text.Position = [700 306 41 32];
+            app.contract_text.Text = {'孔径缩'; '小比例'};
+
+            % Create RightPanel
+            app.RightPanel = uipanel(app.GridLayout);
+            app.RightPanel.Layout.Row = 1;
+            app.RightPanel.Layout.Column = 3;
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = version_4_5
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end
