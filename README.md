@@ -1,3 +1,6 @@
+<script src="https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.js" integrity="sha384-YJ3Ooi3T6B0r0icrOP0k scrapbooking mymn lllllll" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.css" integrity="sha384-Um5gpz1odJg5Z4HAmzPtgZKdSm1XVgenQsK4ZODlTGWlZqHwqID7yyV7KCF0f0V" crossorigin="anonymous">
+
 # 前言
 这个项目是我和两位同学在*大三*的工程光学课程结课大作业，时隔多日，总算想起来有`Github`这个存放代码的绝佳仓库，遂上传到此。
 
@@ -29,4 +32,5 @@ $$
 $$
 此式也就是二维傅立叶变换的形式，说明夫琅禾费衍射就是对衍射孔处光束复振幅的二维傅立叶变换结果。这为我们的项目提供了理论支持。
 # 代码架构
+由于matlab闭源，代码文件不是脚本，我这里把代码复制出来，放置在[这里](https://github.com/BugBubbles/2D_FraunhoferDiffraction/blob/main/version_4_5_source_code)供大家参考。
 ## 
